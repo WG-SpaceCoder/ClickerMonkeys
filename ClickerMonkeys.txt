@@ -1,0 +1,54 @@
+//Original credit goes to 0XYGeN64, JackPS9, and VikeStep
+//Edited by zininzinin
+var baseCosts = [10, 50, 250, 1000, 4000, 20000, 100000, 400000, 2500000, 15000000, 100000000, 800000000, 6500000000, 50000000000, 450000000000, 4000000000000, 36000000000000, 320000000000000, 2700000000000000, 24000000000000000, 300000000000000000, 9000000000000000000, 350000000000000000000, 1.4e+22, 4.19999999999999e+24, 2.1e+27];
+
+//Set What you want as your max level
+var MLevel = 150;
+
+//IDs of the gilded heroes (Cid is 0)
+var guildedList = [2, 3, 6];
+
+//set to 1 if you do not have dogcog and set to 0.5 if max level.
+var dogcog = 0.5;
+ 
+function calculateHeroCost(id, level) {
+    if (id === 0 && level <= 15) {
+        return Math.floor((5 + level) * Math.pow(1.07, level) * dogcog);
+    } else if (id === 0) {
+        return Math.floor(20 * Math.pow(1.07, level) * dogcog);
+    } else {
+        return Math.floor(baseCosts[id] * Math.pow(1.07, level) * dogcog);
+    }
+}
+ 
+function isGuilded(guildedList, heroID) {
+    var i = guildedList.length;
+    while (i--) {
+       if (guildedList[i] == heroID) {
+           return true;
+       }
+    }
+    return false;
+}
+ 
+function purchase() {
+    var save = JSON.parse(JSMod.getUserData());
+    var heroCosts = [];
+    var currentGold = save.gold;
+    for (i = 0; i < 26; i++) {
+        if(save.heroCollection.heroes[i+1].level < MLevel || isGuilded(guildedList, i))
+        {
+            heroCosts[i] = calculateHeroCost(i, save.heroCollection.heroes[i+1].level);
+        }
+        else
+        {
+            heroCosts[i] = Number.MAX_VALUE;
+        }
+    }
+    if (currentGold > Math.min.apply(Math,heroCosts))
+    {
+        JSMod.levelHero(heroCosts.indexOf(Math.min.apply(Math,heroCosts)) + 1);
+    }
+}
+ 
+setInterval(function(){purchase();},10);
