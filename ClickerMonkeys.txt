@@ -10,6 +10,9 @@ var guildedList = [2, 3, 6];
 
 //set to 1 if you do not have dogcog and set to 0.5 if max level.
 var dogcog = 0.5;
+
+//Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 10
+var interval = 10;
  
 function calculateHeroCost(id, level) {
     if (id === 0 && level <= 15) {
@@ -51,4 +54,4 @@ function purchase() {
     }
 }
  
-setInterval(function(){purchase();},10);
+setInterval(function(){purchase();},interval);
