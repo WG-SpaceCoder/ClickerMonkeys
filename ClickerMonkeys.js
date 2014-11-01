@@ -26,10 +26,10 @@
         var maxLevels = [150, 100, 125, 75, 100, 100, 75, 75, 75, 100, 75, 100, 100, 100, 100, 125, 125, 75, 75, 150, 100, 100, 125, 100, 75, 75];
         var zoneTimer = 0;
         var currentZone = 0;
-
+        
         //GUI related. Do Not Change
-	    var autoBuyButton = document.createElement('input');
-	    var levelCidButton = document.createElement('input');
+        var autoBuyButton = document.createElement('input');
+        var levelCidButton = document.createElement('input');
         
         //Set What you want as your max level
         var MLevel = 150;
@@ -54,18 +54,21 @@
         
         //How often to try to buy all upgrades
         var upgradeInterval = 10000;
-
+        
         //How often to poll for skills
-	    var skillInterval = 1000;
-
-	    //autobuy heroes by default
-	    var autoBuy = true;
-
-	    //Auto-level Cid by default
-	    var levelCidEnabled = true;
-
-	    //Enables debug messaging. Messages can be viewed in browser console.
-	    var enableDebug = true;
+        var skillInterval = 1000;
+        
+        //autobuy heroes by default
+        var autoBuy = true;
+        
+        //Auto-level Cid by default
+        var levelCidEnabled = true;
+        
+        //Enables debug messaging. Messages can be viewed in browser console.
+        var enableDebug = true;
+        
+        //Remove Clicker Heroes logo from top of page. Used for lower resolution screens
+        var disableLogo = true;
         
         var App = {
             name: "Clicker Monkeys",
@@ -73,9 +76,7 @@
                 setInterval(purchaseHighest,purchaseInterval);
                 setInterval(upgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
-                initButtons();
-                if (!levelCidEnabled)
-                	baseCosts[0] = Number.MAX_VALUE;
+                
                 try {
                     JSMod.setProgressMode(true);
                 } catch (e) { /* Ignore exception. */ }
@@ -84,55 +85,63 @@
                 zoneTimer = Date.now();
                 currentZone = zone;
                 debug("New zone: " + zone + " at time " + zoneTimer);
+            },
+            onReady: function () {
+                debug("Ready to roll fox!");
+                initButtons();
+                if (!levelCidEnabled)
+                    baseCosts[0] = Number.MAX_VALUE;
             }
         };
-
+        
         function debug(message){
-        	if (enableDebug)
-        		console.log(message);
+            if (enableDebug)
+                console.log(message);
         }
-
+        
         function initButtons() {
-	      autoBuyButton.type = 'button';
-	      autoBuyButton.value = 'Auto-Buy ' + autoBuy;
-	      autoBuyButton.onclick = setAutoBuy;
-	      $('#header').append(autoBuyButton);
-
-	      
-	      levelCidButton.type = 'button';
-	      levelCidButton.value = 'Level Cid ' + levelCidEnabled;
-	      levelCidButton.onclick = setLevelCid;
-	      $('#header').append(levelCidButton);
-	    }
-
-	    function setAutoBuy() {
-	      debug('autoBuyButton Clicked!');
-	      autoBuy = !autoBuy;
-	      autoBuyButton.value = 'Auto-Buy ' + autoBuy;
-	    }
-
-	    function setLevelCid() {
-	      debug('setLevelCid Clicked!');
-	      levelCidEnabled = !levelCidEnabled;
-	      levelCidButton.value = 'Level Cid ' + levelCidEnabled;
-	      if (!levelCidEnabled)
-	      	baseCosts[0] = Number.MAX_VALUE;
-	      else
-	      	baseCosts[0] = 10;
-	      debug('levelCidEnabled ' + levelCidEnabled);
-	    }
+            if (disableLogo)
+                document.getElementById("logo").style.display = 'none';
+            autoBuyButton.type = 'button';
+            autoBuyButton.value = 'Auto-Buy ' + autoBuy;
+            autoBuyButton.onclick = setAutoBuy;
+            $('#header').append(autoBuyButton);
+            
+            
+            levelCidButton.type = 'button';
+            levelCidButton.value = 'Level Cid ' + levelCidEnabled;
+            levelCidButton.onclick = setLevelCid;
+            $('#header').append(levelCidButton);
+        }
+        
+        function setAutoBuy() {
+            debug('autoBuyButton Clicked!');
+            autoBuy = !autoBuy;
+            autoBuyButton.value = 'Auto-Buy ' + autoBuy;
+        }
+        
+        function setLevelCid() {
+            debug('setLevelCid Clicked!');
+            levelCidEnabled = !levelCidEnabled;
+            levelCidButton.value = 'Level Cid ' + levelCidEnabled;
+            if (!levelCidEnabled)
+                baseCosts[0] = Number.MAX_VALUE;
+            else
+                baseCosts[0] = 10;
+            debug('levelCidEnabled ' + levelCidEnabled);
+        }
         
         function upgrades() {
             try {
                 JSMod.buyAllAvailableUpgrades();
             } catch (e) { /* Ignore error, button probably not unlocked yet. */  }
         }
-
+        
         function reportSkillCooldowns() {
-	      for (var i = 1; i <= 9; i++) {
-	        debug('Skill cooldown for skill ' + i + ' is ' + JSON.parse(JSMod.getUserData()).skillCooldowns[i] + ' miliseconds');
-	      }
-	    }
+            for (var i = 1; i <= 9; i++) {
+                debug('Skill cooldown for skill ' + i + ' is ' + JSON.parse(JSMod.getUserData()).skillCooldowns[i] + ' miliseconds');
+            }
+        }
         
         function tryAscend() {
             var timeout = (Date.now() - zoneTimer) / 1000;
@@ -195,23 +204,23 @@
         }
         
         function purchaseHighest() {
-	      if (autoBuy) {
-	        var save = JSON.parse(JSMod.getUserData());
-	        var currentGold = save.gold;
-	        var heroCost;
-	        for (var i = 25; i >= 0; i--) {
-	          if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(guildedList, i))
-	          {
-	            heroCost = calculateHeroCost(i, save.heroCollection.heroes[i + 1].level);
-	            if (currentGold > heroCost)
-	            {
-	              JSMod.levelHero(i + 1);
-	              return
-	            }
-	          }
-	        }
-	      }
-	    }
+            if (autoBuy) {
+                var save = JSON.parse(JSMod.getUserData());
+                var currentGold = save.gold;
+                var heroCost;
+                for (var i = 25; i >= 0; i--) {
+                    if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(guildedList, i))
+                    {
+                        heroCost = calculateHeroCost(i, save.heroCollection.heroes[i + 1].level);
+                        if (currentGold > heroCost)
+                        {
+                            JSMod.levelHero(i + 1);
+                            return
+                        }
+                    }
+                }
+            }
+        }
         
         function updateDogcog() {
             var save = JSON.parse(JSMod.getUserData());
