@@ -54,7 +54,7 @@
             name: "Clicker Monkeys",
             onPlaying: function () {
                 setInterval(purchaseHighest,purchaseInterval);
-                setInterval(JSMod.buyAllAvailableUpgrades,upgradeInterval);
+                setInterval(upgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
                 // TODO: Check if Progress mode is available.
                 //   	And if it's not then auto-progress when level complete.
@@ -67,6 +67,14 @@
             }
         };
         
+		function upgrades() {
+			try {
+				JSMod.buyAllAvailableUpgrades();
+			} catch (e) {
+				console.log("Something went wrong: " + e.message);
+			}
+		}
+		
         function tryAscend() {
             var timeout = Date.now() - zoneTimer / 1000;
             console.log("Trying to ascend. Timeout is " + timeout);
