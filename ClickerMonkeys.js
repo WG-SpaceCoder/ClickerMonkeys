@@ -21,9 +21,6 @@
         var maxAttempts = 100;
         var loadTimeout = 10000;
         
-        //Original credit goes to 0XYGeN64, JackPS9, and VikeStep
-        //Edited by zininzinin and unv_annihilator
-        
         //Do Not Change
         var baseCosts = [10, 50, 250, 1000, 4000, 20000, 100000, 400000, 2500000, 15000000, 100000000, 800000000, 6500000000, 50000000000, 450000000000, 4000000000000, 36000000000000, 320000000000000, 2700000000000000, 24000000000000000, 300000000000000000, 9000000000000000000, 350000000000000000000, 1.4e+22, 4.19999999999999e+24, 2.1e+27];
         var zoneTimer = 0;
@@ -53,14 +50,15 @@
         //How often to try to buy all upgrades
         var upgradeInterval = 10000;
         
-        //***** implement app here *****
         var App = {
             name: "Clicker Monkeys",
             onPlaying: function () {
                 setInterval(purchaseHighest,purchaseInterval);
                 setInterval(JSMod.buyAllAvailableUpgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
-                // JSMod.setProgressMode(true);
+                // TODO: Check if Progress mode is available.
+                //   	And if it's not then auto-progress when level complete.
+                JSMod.setProgressMode(true);
             },
             onSelectedZone: function (zone) {
                 zoneTimer = Date.now();
@@ -74,7 +72,9 @@
             console.log("Trying to ascend. Timeout is " + timeout);
             if (currentZone >= minAscendZone && (timeout > ascendTimeout)) {
                 JSMod.ascend();
-                // JSMod.setProgressMode(true);
+                // TODO: Check if Progress mode is available.
+                //   	And if it's not then auto-progress when level complete.
+                JSMod.setProgressMode(true);
             }
         }
         
