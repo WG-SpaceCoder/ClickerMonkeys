@@ -23,8 +23,12 @@
         
         //Do Not Change
         var baseCosts = [10, 50, 250, 1000, 4000, 20000, 100000, 400000, 2500000, 15000000, 100000000, 800000000, 6500000000, 50000000000, 450000000000, 4000000000000, 36000000000000, 320000000000000, 2700000000000000, 24000000000000000, 300000000000000000, 9000000000000000000, 350000000000000000000, 1.4e+22, 4.19999999999999e+24, 2.1e+27];
+        var maxLevels = [150, 100, 125, 75, 100, 100, 75, 75, 75, 100, 75, 100, 100, 100, 100, 125, 125, 75, 75, 150, 100, 100, 125, 100, 75, 75];
         var zoneTimer = 0;
         var currentZone = 0;
+
+        //GUI related. Do Not Change
+	    var autoBuyButton = document.createElement('input');
         
         //Set What you want as your max level
         var MLevel = 150;
@@ -49,6 +53,12 @@
         
         //How often to try to buy all upgrades
         var upgradeInterval = 10000;
+
+        //How often to poll for skills
+	    var skillInterval = 1000;
+
+	    //autobuy heroes by default
+	    var autoBuy = true;
         
         var App = {
             name: "Clicker Monkeys",
@@ -56,6 +66,7 @@
                 setInterval(purchaseHighest,purchaseInterval);
                 setInterval(upgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
+                initButtons();
                 try {
                     JSMod.setProgressMode(true);
                 } catch (e) { /* Ignore exception. */ }
@@ -66,15 +77,34 @@
                 console.log("New zone: " + zone + " at time " + zoneTimer);
             }
         };
+
+        function initButtons() {
+	      autoBuyButton.type = 'button';
+	      autoBuyButton.value = 'Auto-Buy ' + autoBuy;
+	      autoBuyButton.onclick = setAutoBuy;
+	      $('#header').append(autoBuyButton);
+	    }
+
+	    function setAutoBuy() {
+	      console.log('Button Clicked!');
+	      autoBuy = !autoBuy;
+	      autoBuyButton.value = 'Auto-Buy ' + autoBuy;
+	    }
         
         function upgrades() {
             try {
                 JSMod.buyAllAvailableUpgrades();
             } catch (e) { /* Ignore error, button probably not unlocked yet. */  }
         }
+
+        function reportSkillCooldowns() {
+	      for (var i = 1; i <= 9; i++) {
+	        console.log('Skill cooldown for skill ' + i + ' is ' + JSON.parse(JSMod.getUserData()).skillCooldowns[i] + ' miliseconds');
+	      }
+	    }
         
         function tryAscend() {
-            var timeout = Date.now() - zoneTimer / 1000;
+            var timeout = (Date.now() - zoneTimer) / 1000;
             console.log("Trying to ascend. Timeout is " + timeout);
             if (currentZone >= minAscendZone && (timeout > ascendTimeout)) {
                 JSMod.ascend();
@@ -134,20 +164,23 @@
         }
         
         function purchaseHighest() {
-            updateDogcog();
-            var heroCost;
-            var currentGold = JSON.parse(JSMod.getUserData()).gold;
-            var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
-            for (var i = 25; i > 0; i--) {
-                if(heroCollection.heroes[i+1].level < MLevel || isGuilded(guildedList, i)) {
-                    heroCost = calculateHeroCost(i, heroCollection.heroes[i+1].level);
-                    if (currentGold > heroCost) {
-                        JSMod.levelHero(i + 1);
-                        break;
-                    }
-                }
-            }
-        }
+	      if (autoBuy) {
+	        var save = JSON.parse(JSMod.getUserData());
+	        var currentGold = save.gold;
+	        var heroCost;
+	        for (var i = 25; i >= 0; i--) {
+	          if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(guildedList, i))
+	          {
+	            heroCost = calculateHeroCost(i, save.heroCollection.heroes[i + 1].level);
+	            if (currentGold > heroCost)
+	            {
+	              JSMod.levelHero(i + 1);
+	              return
+	            }
+	          }
+	        }
+	      }
+	    }
         
         function updateDogcog() {
             var save = JSON.parse(JSMod.getUserData());
