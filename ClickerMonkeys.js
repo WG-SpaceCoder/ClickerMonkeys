@@ -32,7 +32,7 @@
         //IDs of the gilded heroes (Cid is 0)
         var guildedList = [6];
         
-        //set to 1 if you do not have dogcog and set to 0.5 if max level.
+        // Dogcog level, this will be detected automatically, no need to set it.
         var dogcog = 1;
         
         //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 10.
@@ -56,9 +56,9 @@
                 setInterval(purchaseHighest,purchaseInterval);
                 setInterval(upgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
-                // TODO: Check if Progress mode is available.
-                //   	And if it's not then auto-progress when level complete.
-                JSMod.setProgressMode(true);
+                try {
+                    JSMod.setProgressMode(true);
+                } catch (e) { /* Ignore exception. */ }
             },
             onSelectedZone: function (zone) {
                 zoneTimer = Date.now();
@@ -70,9 +70,7 @@
         function upgrades() {
             try {
                 JSMod.buyAllAvailableUpgrades();
-            } catch (e) {
-                console.log("Something went wrong: " + e.message);
-            }
+            } catch (e) { /* Ignore error, button probably not unlocked yet. */  }
         }
         
         function tryAscend() {
@@ -80,9 +78,9 @@
             console.log("Trying to ascend. Timeout is " + timeout);
             if (currentZone >= minAscendZone && (timeout > ascendTimeout)) {
                 JSMod.ascend();
-                // TODO: Check if Progress mode is available.
-                //   	And if it's not then auto-progress when level complete.
-                JSMod.setProgressMode(true);
+                try {
+                    JSMod.setProgressMode(true);
+                } catch (e) { /* Ignore exception. */ }
             }
         }
         
@@ -119,6 +117,7 @@
         }
         
         function purchaseCheapest() {
+            updateDogcog();
             var heroCosts = [];
             var currentGold = JSON.parse(JSMod.getUserData()).gold;
             var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
@@ -135,6 +134,7 @@
         }
         
         function purchaseHighest() {
+            updateDogcog();
             var heroCost;
             var currentGold = JSON.parse(JSMod.getUserData()).gold;
             var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
@@ -147,6 +147,13 @@
                     }
                 }
             }
+        }
+        
+        function updateDogcog() {
+            var save = JSON.parse(JSMod.getUserData());
+            try {
+                dogcog = (save.ancients.ancients[11].level * .02);
+            } catch (e) { /* Ignore exception, more than likely not unlocked. */ }
         }
         //******************************
         
