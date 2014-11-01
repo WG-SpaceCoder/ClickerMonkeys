@@ -1,10 +1,10 @@
 // ==UserScript==
-// @id          JSModExampleApp
-// @name        JSMod Example App
+// @id          ZininsClickerMonkeys
+// @name        Zinin's ClickerMonkeys
 // @namespace   .
 // @version     1.0
-// @author      Example Author
-// @description Short demo/template for writing new JSMod apps.
+// @author      Zininzinin
+// @description Trying to automate ALL THE THINGS with clicker heroes
 // @include     http://www.clickerheroes.com/
 // @grant       none
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
@@ -49,13 +49,18 @@
 
         //Will not ascend before you have reached this zone
         var minAscendZone = 100;
+        
+        //How often to try to buy all upgrades
+        var upgradeInterval = 10000;
 
         //***** implement app here *****
         var App = {
             name: "zininzinin's Example App",
             onPlaying: function () {
                 setInterval(purchaseHighest,purchaseInterval);
-                //setInterval(tryAscend,ascendInterval);
+                setInterval(JSMod.buyAllAvailableUpgrades,upgradeInterval);
+                setInterval(tryAscend,ascendInterval);
+                JSMod.setProgressMode(true);
             },
             onSelectedZone: function (zone) {
                 zoneTimer = Date.now();
@@ -68,7 +73,10 @@
             var timeout = Date.now() - zoneTimer / 1000
             console.log("Trying to ascend. Timeout is " + timeout);
             if (currentZone >= minAscendZone && (timeout > ascendTimeout))
-                JSMod.ascend();
+                {
+                    JSMod.ascend();
+                    JSMod.setProgressMode(true);
+                }
         }
 
         function onSelectedZone(zone){
@@ -139,7 +147,6 @@
         }
 
         function purchaseHighest() {
-            console.log("Progress mode: " + JSMod.userData.progressMode);
             var save = JSON.parse(JSMod.getUserData());
             var currentGold = save.gold;
             var heroCost;
