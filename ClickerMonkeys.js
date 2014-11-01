@@ -67,14 +67,14 @@
             }
         };
         
-		function upgrades() {
-			try {
-				JSMod.buyAllAvailableUpgrades();
-			} catch (e) {
-				console.log("Something went wrong: " + e.message);
-			}
-		}
-		
+        function upgrades() {
+            try {
+                JSMod.buyAllAvailableUpgrades();
+            } catch (e) {
+                console.log("Something went wrong: " + e.message);
+            }
+        }
+        
         function tryAscend() {
             var timeout = Date.now() - zoneTimer / 1000;
             console.log("Trying to ascend. Timeout is " + timeout);
@@ -87,11 +87,11 @@
         }
         
         function calculateHeroCost(id) {
-			var level = JSON.parse(JSMod.getUserData()).heroCollection.heroes[id+1].level;
-			return calculateHeroCost(id, level);
+            var level = JSON.parse(JSMod.getUserData()).heroCollection.heroes[id+1].level;
+            return calculateHeroCost(id, level);
         }
         
-		function calculateHeroCost(id, level) {
+        function calculateHeroCost(id, level) {
             if (id === 0 && level <= 15) {
                 return Math.floor((5 + level) * Math.pow(1.07, level) * dogcog);
             } else if (id === 0) {
@@ -100,9 +100,9 @@
                 return Math.floor(baseCosts[id] * Math.pow(1.07, level) * dogcog);
             }
         }
-		
+        
         function canPurchaseHero(id) {
-			return canPurchaseHero(id, (JSON.parse(JSMod.getUserData())).gold);
+            return canPurchaseHero(id, (JSON.parse(JSMod.getUserData())).gold);
         }
         
         function canPurchaseHero(id, gold) {
@@ -110,18 +110,18 @@
         }
         
         function isGuilded(guildedList, heroID) {
-			for (var i = 1; i < guildedList.length; i++) {
-				if (guildedList[i] == heroID) {
+            for (var i = 1; i < guildedList.length; i++) {
+                if (guildedList[i] == heroID) {
                     return true;
                 }
-			}
-			return false;
+            }
+            return false;
         }
-		
+        
         function purchaseCheapest() {
             var heroCosts = [];
             var currentGold = JSON.parse(JSMod.getUserData()).gold;
-			var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
+            var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
             for (var i = 0; i < 26; i++) {
                 if (heroCollection.heroes[i+1].level < MLevel || isGuilded(guildedList, i)) {
                     heroCosts[i] = calculateHeroCost(i, heroCollection.heroes[i+1].level);
@@ -136,8 +136,8 @@
         
         function purchaseHighest() {
             var heroCost;
-			var currentGold = JSON.parse(JSMod.getUserData()).gold;
-			var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
+            var currentGold = JSON.parse(JSMod.getUserData()).gold;
+            var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
             for (var i = 25; i > 0; i--) {
                 if(heroCollection.heroes[i+1].level < MLevel || isGuilded(guildedList, i)) {
                     heroCost = calculateHeroCost(i, heroCollection.heroes[i+1].level);
