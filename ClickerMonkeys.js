@@ -60,7 +60,7 @@
         var upgradeInterval = 10000;
         
         //How often to poll for skills
-        var skillInterval = 10000;
+        var skillInterval = 1000;
         
         //How often to check for retry boss timeout
         var bossTimeoutInterval = 10000;
@@ -117,20 +117,32 @@
                 console.log(message);
         }
         
+        function skillsUnlocked(skillIDs){
+            var save = JSON.parse(JSMod.getUserData());
+            for (var i = 1; i <= skillIDs.length; i++) {
+                if (save.skillCooldowns[skillIDs[i]] === undefined)
+                    return false;
+            }
+            return true;
+        }
+        
         function getSkillCooldown(skillID){
             var save = JSON.parse(JSMod.getUserData());
             var vaagurMultiplier = 1;
             try {
-                    vaagurMultiplier = (100 - save.ancients.ancients[20].level * 5) / 100;
-                } catch (e) { /* Ignore exception. */ }
+                vaagurMultiplier = (100 - save.ancients.ancients[20].level * 5) / 100;
+            } catch (e) { /* Ignore exception. */ }
             return [10, 10, 30, 30, 60, 480, 60, 60, 60][skillID - 1] * 1000 * 60 * vaagurMultiplier;
         }
         
         function skillsReady(skillIDs){
+            //debug('Running skillsReady for ' + skillIDs);
             var cooldowns = JSON.parse(JSMod.getUserData()).skillCooldowns;
-            for (var i = 1; i <= skillIDs.length; i++) {
-                if (Date.now() - cooldowns[i] > getSkillCooldown(i))
+            for (var i = 0; i < skillIDs.length; i++) {
+                //debug('Time since used skill ' + skillIDs[i] + ' is ' + (Date.now() - cooldowns[skillIDs[i]]) + ' and timeout is ' + getSkillCooldown(skillIDs[i]));
+                if (cooldowns[skillIDs[i]] === undefined || (Date.now() - cooldowns[skillIDs[i]] < getSkillCooldown(skillIDs[i]) && cooldowns[skillIDs[i]] !== 0))
                     return false;
+                //debug('cooldowns[skillIDs[i]] ' + cooldowns[skillIDs[i]] + ' for skill ID ' + skillIDs[i]);
             }
             return true;
         }
@@ -140,16 +152,16 @@
             if (darkRitualEnabled) {
                 var cooldowns = JSON.parse(JSMod.getUserData()).skillCooldowns;
                 if (skillsReady([6, 8, 9])) {
-                    debug("First EDR");
+                    //debug("First EDR");
                     JSMod.useSkill(8);
                     JSMod.useSkill(6);
                     JSMod.useSkill(9);
                 } else if (skillsReady([8, 9])) {
-                    debug("Second EDR");
+                    //debug("Second EDR");
                     JSMod.useSkill(8);
                     JSMod.useSkill(9);
                 } else {
-                    debug("Time till next use " + (getSkillCooldown(9) - (Date.now() - JSON.parse(JSMod.getUserData()).skillCooldowns[9])));
+                    //debug("Time till next use " + (getSkillCooldown(9) - (Date.now() - JSON.parse(JSMod.getUserData()).skillCooldowns[9])));
                 }
             }
         }
