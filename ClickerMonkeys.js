@@ -2,7 +2,7 @@
 // @id          ClickerMonkeys
 // @name        Clicker Monkeys
 // @namespace   .
-// @version     1.1
+// @version     1.2
 // @authors     Zininzinin, unv_annihilator
 // @description Trying to automate ALL THE THINGS with clicker heroes
 // @include     http://www.clickerheroes.com/
@@ -10,10 +10,10 @@
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // ==/UserScript==
 
-(function () {
+(function() {
     "use strict";
     
-    var main = function () {
+    var main = function() {
         "use strict";
         
         var JSMod = null;
@@ -26,20 +26,23 @@
         var maxLevels = [150, 100, 125, 75, 100, 100, 75, 75, 75, 100, 75, 100, 100, 100, 100, 125, 125, 75, 75, 150, 100, 100, 125, 100, 75, 75];
         var zoneTimer = 0;
         var currentZone = 0;
+        var previousZone = 0;
         var stuckOnBoss = false;
         
         //GUI related. Do Not Change
         var autoBuyButton = document.createElement('input');
         var levelCidButton = document.createElement('input');
+        var darkRitualButton = document.createElement('input');
+        var autoAscendButton = document.createElement('input');
         
         //Set What you want as your max level
         var MLevel = 150;
         
-        //IDs of the gilded heroes (Cid is 0)
-        var guildedList = [6];
-        
         // Dogcog level, this will be detected automatically, no need to set it.
         var dogcog = 1;
+        
+        //IDs of the gilded heroes (Cid is 0)
+        var guildedList = [6];
         
         //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 25
         var purchaseInterval = 100;
@@ -57,10 +60,19 @@
         var upgradeInterval = 10000;
         
         //How often to poll for skills
-        var skillInterval = 1000;
+        var skillInterval = 10000;
+        
+        //How often to check for retry boss timeout
+        var bossTimeoutInterval = 10000;
+        
+        //After failing to kill a boss, how long to wait to retry (default is 30 minutes)
+        var bossTimeout = 60000 * 30;
         
         //autobuy heroes by default
         var autoBuy = true;
+        
+        //auto-ascend by default
+        var autoAscend = true;
         
         //Auto-level Cid by default
         var levelCidEnabled = true;
@@ -71,51 +83,108 @@
         //Remove Clicker Heroes logo from top of page. Used for lower resolution screens
         var disableLogo = true;
         
+        //If dark ritual is enabled on start
+        var darkRitualEnabled = false;
+        
         var App = {
             name: "Clicker Monkeys",
-            onPlaying: function () {
-                setInterval(purchaseHighest,purchaseInterval);
-                setInterval(upgrades,upgradeInterval);
-                setInterval(tryAscend,ascendInterval);
+            onPlaying: function() {
+                setInterval(purchaseHighest, purchaseInterval);
+                setInterval(upgrades, upgradeInterval);
+                setInterval(tryAscend, ascendInterval);
+                setInterval(darkRitual, skillInterval);
                 //setInterval(autoProgress,1000);
                 
                 try {
                     JSMod.setProgressMode(true);
                 } catch (e) { /* Ignore exception. */ }
             },
-            onSelectedZone: function (zone) {
+            onSelectedZone: function(zone) {
                 zoneTimer = Date.now();
                 currentZone = zone;
                 //debug("New zone: " + zone + " at time " + zoneTimer);
                 autoProgress();
             },
-            onReady: function () {
+            onReady: function() {
                 debug("Ready to roll fox!");
                 initButtons();
-                if (!levelCidEnabled)
-                    baseCosts[0] = Number.MAX_VALUE;
+                baseCosts[0] = ((!levelCidEnabled) ? Number.MAX_VALUE : 10);
             }
         };
         
-        function debug(message){
+        function debug(message) {
             if (enableDebug)
                 console.log(message);
         }
         
-        function autoProgress(){
-          var save = JSON.parse(JSMod.getUserData());
-          var zone = save.currentZoneHeight;
-          var bossHP;
-          //If you are the zone before a boss
-          if ((zone % 5) == 4){
-              var bossZone = zone + 1;
-            if (zone < 140)
-                bossHP = 10 * (Math.pow(1.6, (bossZone - 1)) + (bossZone - 1)) * 10;
-            else
-              bossHP = 10 * ((Math.pow(1.6, 139) + 139) * Math.pow(1.15, (bossZone - 140))) * 10;
-            debug("Level " + bossZone + " Boss with HP " + bossHP);
-          }
+        function getSkillCooldown(skillID){
+            var save = JSON.parse(JSMod.getUserData());
+            var vaagurMultiplier = 1;
+            try {
+                    vaagurMultiplier = (100 - save.ancients.ancients[20].level * 5) / 100;
+                } catch (e) { /* Ignore exception. */ }
+            return [10, 10, 30, 30, 60, 480, 60, 60, 60][skillID - 1] * 1000 * 60 * vaagurMultiplier;
         }
+        
+        function skillsReady(skillIDs){
+            var cooldowns = JSON.parse(JSMod.getUserData()).skillCooldowns;
+            for (var i = 1; i <= skillIDs.length; i++) {
+                if (Date.now() - cooldowns[i] > getSkillCooldown(i))
+                    return false;
+            }
+            return true;
+        }
+        
+        function darkRitual(){
+            //debug("Running Dark Ritual and it is " + darkRitualEnabled);
+            if (darkRitualEnabled) {
+                var cooldowns = JSON.parse(JSMod.getUserData()).skillCooldowns;
+                if (skillsReady([6, 8, 9])) {
+                    debug("First EDR");
+                    JSMod.useSkill(8);
+                    JSMod.useSkill(6);
+                    JSMod.useSkill(9);
+                } else if (skillsReady([8, 9])) {
+                    debug("Second EDR");
+                    JSMod.useSkill(8);
+                    JSMod.useSkill(9);
+                } else {
+                    debug("Time till next use " + (getSkillCooldown(9) - (Date.now() - JSON.parse(JSMod.getUserData()).skillCooldowns[9])));
+                }
+            }
+        }
+        
+        //WIP - totally broken right now - Will needs to fix
+        function autoProgress(){
+            var save = JSON.parse(JSMod.getUserData());
+            var zone = save.currentZoneHeight;
+            
+            if (currentZone != zone) {
+                if (previousZone > zone) {
+                    if (zoneTimer === 0)
+                        zoneTimer = Date.now();
+                }
+                previousZone = zone;
+            } else{
+                
+            }
+        }
+        
+        //Commented because it sucks (need DPS) << official 
+        // function autoProgress() {
+        //     var save = JSON.parse(JSMod.getUserData());
+        //     var zone = save.currentZoneHeight;
+        //     var bossHP;
+        //     //If you are the zone before a boss
+        //     if ((zone % 5) == 4) {
+        //         var bossZone = zone + 1;
+        //         if (zone < 140)
+        //             bossHP = 10 * (Math.pow(1.6, (bossZone - 1)) + (bossZone - 1)) * 10;
+        //         else
+        //             bossHP = 10 * ((Math.pow(1.6, 139) + 139) * Math.pow(1.15, (bossZone - 140))) * 10;
+        //         debug("Level " + bossZone + " Boss with HP " + bossHP);
+        //     }
+        // }
         
         function initButtons() {
             if (disableLogo)
@@ -129,6 +198,28 @@
             levelCidButton.value = 'Level Cid ' + levelCidEnabled;
             levelCidButton.onclick = setLevelCid;
             $('#header').append(levelCidButton);
+            
+            darkRitualButton.type = 'button';
+            darkRitualButton.value = 'Dark Ritual ' + darkRitualEnabled;
+            darkRitualButton.onclick = setDarkRitual;
+            $('#header').append(darkRitualButton);
+            
+            autoAscendButton.type = 'button';
+            autoAscendButton.value = ((autoAscend) ? 'Auto Ascenion' : 'Deep Run');
+            autoAscendButton.onclick = setAutoAscend;
+            $('#header').append(autoAscendButton);
+        }
+        
+        function setAutoAscend(){
+            debug('setAutoAscend Clicked!');
+            autoAscend = !autoAscend;
+            autoAscendButton.value = (autoAscend ? 'Auto Ascenion' : 'Deep Run');
+        }
+        
+        function setDarkRitual(){
+            debug('setDarkRitual Clicked!');
+            darkRitualEnabled = !darkRitualEnabled;
+            darkRitualButton.value = 'Dark Ritual ' + darkRitualEnabled;
         }
         
         function setAutoBuy() {
@@ -141,23 +232,18 @@
             debug('setLevelCid Clicked!');
             levelCidEnabled = !levelCidEnabled;
             levelCidButton.value = 'Level Cid ' + levelCidEnabled;
-            if (!levelCidEnabled)
-                baseCosts[0] = Number.MAX_VALUE;
-            else
-                baseCosts[0] = 10;
-            debug('levelCidEnabled ' + levelCidEnabled);
+            baseCosts[0] = ((!levelCidEnabled) ? Number.MAX_VALUE : 10);
         }
         
         function upgrades() {
             try {
                 JSMod.buyAllAvailableUpgrades();
-            } catch (e) { /* Ignore error, button probably not unlocked yet. */  }
+            } catch (e) { /* Ignore error, button probably not unlocked yet. */ }
         }
         
         function reportSkillCooldowns() {
-            for (var i = 1; i <= 9; i++) {
+            for (var i = 1; i <= 9; i++)
                 debug('Skill cooldown for skill ' + i + ' is ' + JSON.parse(JSMod.getUserData()).skillCooldowns[i] + ' miliseconds');
-            }
         }
         
         function tryAscend() {
@@ -172,18 +258,17 @@
         }
         
         function calculateHeroCost(id) {
-            var level = JSON.parse(JSMod.getUserData()).heroCollection.heroes[id+1].level;
+            var level = JSON.parse(JSMod.getUserData()).heroCollection.heroes[id + 1].level;
             return calculateHeroCost(id, level);
         }
         
         function calculateHeroCost(id, level) {
-            if (id === 0 && level <= 15 && levelCidEnabled) {
+            if (id === 0 && level <= 15 && levelCidEnabled)
                 return Math.floor((5 + level) * Math.pow(1.07, level) * dogcog);
-            } else if (id === 0 && levelCidEnabled) {
+            else if (id === 0 && levelCidEnabled)
                 return Math.floor(20 * Math.pow(1.07, level) * dogcog);
-            } else {
+            else
                 return Math.floor(baseCosts[id] * Math.pow(1.07, level) * dogcog);
-            }
         }
         
         function canPurchaseHero(id) {
@@ -191,58 +276,55 @@
         }
         
         function canPurchaseHero(id, gold) {
-            return (gold > calculateHeroCost(id)) && (save.heroCollection.heroes[id+1].level < MLevel || isGuilded(id));
+            return (gold > calculateHeroCost(id)) && (JSON.parse(JSMod.getUserData()).heroCollection.heroes[id + 1].level < MLevel || isGuilded(id));
         }
         
         function isGuilded(heroID) {
             for (var i = 0; i < guildedList.length; i++) {
-                if (guildedList[i] == heroID) {
+                if (guildedList[i] == heroID)
                     return true;
-                }
             }
             return false;
         }
         
+        // function isGuilded(heroID) {
+        //     var result = null; 
+        //     try {
+        //         result = (JSON.parse(JSMod.getUserData()).heroCollection.heroes[heroID].epicLevel > 0);
+        //     } catch (e) {
+        //         debug("Something went wrong! " + e.message);
+        //     }
+        //     return result;
+        // }
+        
         function purchaseCheapest() {
             updateDogcog();
+            var save = JSON.parse(JSMod.getUserData());
             var heroCosts = [];
-            var currentGold = JSON.parse(JSMod.getUserData()).gold;
-            var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
             var bossTimer = 30 + (save.ancients.ancients[17].level * 5);
-            for (var i = 0; i < 26; i++) {
-                if (heroCollection.heroes[i+1].level < MLevel || isGuilded(i)) {
-                    heroCosts[i] = calculateHeroCost(i, heroCollection.heroes[i+1].level);
-                } else {
-                    heroCosts[i] = Number.MAX_VALUE;
-                }
-            }
-            if (currentGold > Math.min.apply(Math,heroCosts)) {
-                JSMod.levelHero(heroCosts.indexOf(Math.min.apply(Math,heroCosts)) + 1);
-            }
+            for (var i = 0; i < 26; i++)
+                heroCosts[i] = ((save.heroCollection.heroes[i + 1].level < MLevel || isGuilded(i)) ? calculateHeroCost(i, save.heroCollection.heroes[i + 1].level) : Number.MAX_VALUE);
+
+            if (save.gold > Math.min.apply(Math, heroCosts))
+                JSMod.levelHero(heroCosts.indexOf(Math.min.apply(Math, heroCosts)) + 1);
         }
         
-        function getMaxLevel(heroID){
-            if (isGuilded(heroID))
-                return Number.MAX_VALUE;
-            else
-                return maxLevels[heroID];
+        function getMaxLevel(heroID) {
+            return (isGuilded(heroID) ? Number.MAX_VALUE : maxLevels[heroID]);
         }
         
-        function maxLevelHero(heroLevel, heroID){
+        function maxLevelHero(heroLevel, heroID) {
             JSMod.setShiftEnabled(false);
             JSMod.setCtrlEnabled(false);
             JSMod.setZKeyEnabled(false);
             var heroDif = getMaxLevel(heroID) - heroLevel;
             
-            if (heroDif >= 100){
-            	JSMod.setCtrlEnabled(true);
-            }
-            else if (heroDif >=25){
-            	JSMod.setZKeyEnabled(true);
-            }
-            else if (heroDif >=10){
-            	JSMod.setZKeyEnabled(true);
-            }
+            if (heroDif >= 100)
+                JSMod.setCtrlEnabled(true);
+            else if (heroDif >= 25)
+                JSMod.setZKeyEnabled(true);
+            else if (heroDif >= 10)
+                JSMod.setZKeyEnabled(true);
             JSMod.levelHero(heroID + 1);
             JSMod.setShiftEnabled(false);
             JSMod.setCtrlEnabled(false);
@@ -258,10 +340,8 @@
                 for (var i = 25; i >= 0; i--) {
                     if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(i)) {
                         heroCost = calculateHeroCost(i, save.heroCollection.heroes[i + 1].level);
-                        if (currentGold > heroCost) {
-                            maxLevelHero(save.heroCollection.heroes[i + 1].level, i);
-                            return;
-                        }
+                        if (currentGold > heroCost)
+                            return maxLevelHero(save.heroCollection.heroes[i + 1].level, i);
                     }
                 }
             }
@@ -271,20 +351,18 @@
             var save = JSON.parse(JSMod.getUserData());
             try {
                 var temp = dogcog;
-                dogcog = (save.ancients.ancients[11].level * .02);
+                dogcog = (save.ancients.ancients[11].level * 0.02);
                 if (temp != dogcog)
                     debug("Set dogcog from " + temp + ", to " + dogcog);
             } catch (e) { /* Ignore exception, more than likely not unlocked. */ }
         }
-        //******************************
         
         function init() {
             if (window.JSMod === undefined) {
-                if (loadAttempts++ < maxAttempts) {
-                    window.setTimeout(init, loadTimeout/maxAttempts);
-                } else {
+                if (loadAttempts++ < maxAttempts)
+                    window.setTimeout(init, loadTimeout / maxAttempts);
+                else
                     alert("Failed to load " + App.name + "! Cannot find JSMod object on global scope");
-                }
             } else {
                 JSMod = window.JSMod;
                 JSMod.loadApp(App);
