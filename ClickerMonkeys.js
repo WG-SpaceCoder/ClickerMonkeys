@@ -26,6 +26,7 @@
         var maxLevels = [150, 100, 125, 75, 100, 100, 75, 75, 75, 100, 75, 100, 100, 100, 100, 125, 125, 75, 75, 150, 100, 100, 125, 100, 75, 75];
         var zoneTimer = 0;
         var currentZone = 0;
+        var stuckOnBoss = false;
         
         //GUI related. Do Not Change
         var autoBuyButton = document.createElement('input');
@@ -40,7 +41,7 @@
         // Dogcog level, this will be detected automatically, no need to set it.
         var dogcog = 1;
         
-        //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 10.
+        //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 25
         var purchaseInterval = 100;
         
         //How often to check if you should ascend in miliseconds. Default is 30 seconds.
@@ -76,6 +77,7 @@
                 setInterval(purchaseHighest,purchaseInterval);
                 setInterval(upgrades,upgradeInterval);
                 setInterval(tryAscend,ascendInterval);
+                //setInterval(autoProgress,1000);
                 
                 try {
                     JSMod.setProgressMode(true);
@@ -84,7 +86,8 @@
             onSelectedZone: function (zone) {
                 zoneTimer = Date.now();
                 currentZone = zone;
-                debug("New zone: " + zone + " at time " + zoneTimer);
+                //debug("New zone: " + zone + " at time " + zoneTimer);
+                autoProgress();
             },
             onReady: function () {
                 debug("Ready to roll fox!");
@@ -99,6 +102,21 @@
                 console.log(message);
         }
         
+        function autoProgress(){
+          var save = JSON.parse(JSMod.getUserData());
+          var zone = save.currentZoneHeight;
+          var bossHP;
+          //If you are the zone before a boss
+          if ((zone % 5) == 4){
+              var bossZone = zone + 1;
+            if (zone < 140)
+                bossHP = 10 * (Math.pow(1.6, (bossZone - 1)) + (bossZone - 1)) * 10;
+            else
+              bossHP = 10 * ((Math.pow(1.6, 139) + 139) * Math.pow(1.15, (bossZone - 140))) * 10;
+            debug("Level " + bossZone + " Boss with HP " + bossHP);
+          }
+        }
+        
         function initButtons() {
             if (disableLogo)
                 document.getElementById("logo").style.display = 'none';
@@ -106,7 +124,6 @@
             autoBuyButton.value = 'Auto-Buy ' + autoBuy;
             autoBuyButton.onclick = setAutoBuy;
             $('#header').append(autoBuyButton);
-            
             
             levelCidButton.type = 'button';
             levelCidButton.value = 'Level Cid ' + levelCidEnabled;
@@ -174,11 +191,11 @@
         }
         
         function canPurchaseHero(id, gold) {
-            return (gold > calculateHeroCost(id)) && (save.heroCollection.heroes[id+1].level < MLevel || isGuilded(guildedList, id));
+            return (gold > calculateHeroCost(id)) && (save.heroCollection.heroes[id+1].level < MLevel || isGuilded(id));
         }
         
-        function isGuilded(guildedList, heroID) {
-            for (var i = 1; i < guildedList.length; i++) {
+        function isGuilded(heroID) {
+            for (var i = 0; i < guildedList.length; i++) {
                 if (guildedList[i] == heroID) {
                     return true;
                 }
@@ -191,8 +208,9 @@
             var heroCosts = [];
             var currentGold = JSON.parse(JSMod.getUserData()).gold;
             var heroCollection = JSON.parse(JSMod.getUserData()).heroCollection;
+            var bossTimer = 30 + (save.ancients.ancients[17].level * 5);
             for (var i = 0; i < 26; i++) {
-                if (heroCollection.heroes[i+1].level < MLevel || isGuilded(guildedList, i)) {
+                if (heroCollection.heroes[i+1].level < MLevel || isGuilded(i)) {
                     heroCosts[i] = calculateHeroCost(i, heroCollection.heroes[i+1].level);
                 } else {
                     heroCosts[i] = Number.MAX_VALUE;
@@ -203,19 +221,46 @@
             }
         }
         
+        function getMaxLevel(heroID){
+            if (isGuilded(heroID))
+                return Number.MAX_VALUE;
+            else
+                return maxLevels[heroID];
+        }
+        
+        function maxLevelHero(heroLevel, heroID){
+            JSMod.setShiftEnabled(false);
+            JSMod.setCtrlEnabled(false);
+            JSMod.setZKeyEnabled(false);
+            var heroDif = getMaxLevel(heroID) - heroLevel;
+            
+            if (heroDif >= 100){
+            	JSMod.setCtrlEnabled(true);
+            }
+            else if (heroDif >=25){
+            	JSMod.setZKeyEnabled(true);
+            }
+            else if (heroDif >=10){
+            	JSMod.setZKeyEnabled(true);
+            }
+            JSMod.levelHero(heroID + 1);
+            JSMod.setShiftEnabled(false);
+            JSMod.setCtrlEnabled(false);
+            JSMod.setZKeyEnabled(false);
+        }
+        
         function purchaseHighest() {
             if (autoBuy) {
+                updateDogcog();
                 var save = JSON.parse(JSMod.getUserData());
                 var currentGold = save.gold;
                 var heroCost;
                 for (var i = 25; i >= 0; i--) {
-                    if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(guildedList, i))
-                    {
+                    if (save.heroCollection.heroes[i + 1].level < maxLevels[i] || isGuilded(i)) {
                         heroCost = calculateHeroCost(i, save.heroCollection.heroes[i + 1].level);
-                        if (currentGold > heroCost)
-                        {
-                            JSMod.levelHero(i + 1);
-                            return
+                        if (currentGold > heroCost) {
+                            maxLevelHero(save.heroCollection.heroes[i + 1].level, i);
+                            return;
                         }
                     }
                 }
@@ -225,7 +270,10 @@
         function updateDogcog() {
             var save = JSON.parse(JSMod.getUserData());
             try {
+                var temp = dogcog;
                 dogcog = (save.ancients.ancients[11].level * .02);
+                if (temp != dogcog)
+                    debug("Set dogcog from " + temp + ", to " + dogcog);
             } catch (e) { /* Ignore exception, more than likely not unlocked. */ }
         }
         //******************************
