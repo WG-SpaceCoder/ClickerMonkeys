@@ -2,7 +2,7 @@
 // @id          ClickerMonkeys
 // @name        Clicker Monkeys
 // @namespace   .
-// @version     1.3.2455
+// @version     1.4.2801
 // @authors     Zininzinin, unv_annihilator
 // @description Trying to automate ALL THE THINGS with clicker heroes
 // @include     http://www.clickerheroes.com/
@@ -15,6 +15,29 @@
     
     var main = function() {
         "use strict";
+        
+        //Intervals
+        var purchaseInterval = 100; //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 25
+        var ascendInterval = 30000; //How often to check if you should ascend in miliseconds. Default is 30 seconds.
+        var skillInterval = 1000; //How often to poll for skills
+        var bossTimeoutInterval = 10000; //How often to check for retry boss timeout
+        
+        //Defaults (what to run on start)
+        var autoBuy = true; //autobuy heroes by default
+        var autoAscend = true; //auto-ascend by default
+        var levelCidEnabled = true; //Auto-level Cid by default
+        var disableLogo = true; //Remove Clicker Heroes logo from top of page. Used for lower resolution screens
+        var darkRitualEnabled = true; //If dark ritual is enabled on start
+        var useOtherSkills = true; //Allows script to use skills defined by variable skillsToSpam
+        
+        //Timeouts
+        var ascendTimeout = 60;//If a zone takes longer than this timeout (seconds), it will ascend
+        var bossTimeout = 60000 * 5; //After failing to kill a boss, how long to wait to retry (default is 20 minutes) 60000 * 20
+        
+        //Other variables
+        var otherSkills = [1, 2, 3, 4, 5, 7]; //List of skills to use. 1 = clickstorm recommended for autoclickers = [1, 2, 3, 4, 5, 7];
+        var minAscendZone = 150; //Will not ascend before you have reached this zone
+        var enableDebug = true; //Enables debug messaging. Messages can be viewed in browser console.
         
         //WARNING: Do Not Change
         var JSMod = null;
@@ -31,43 +54,21 @@
         var currentZone = 0;
         var previousZone = 0;
         var dogcog = 1;
+        var nextHero;
         
         //GUI: Do Not Change
         var autoBuyButton = document.createElement('input');
         var levelCidButton = document.createElement('input');
         var darkRitualButton = document.createElement('input');
         var autoAscendButton = document.createElement('input');
-        
-        //Intervals
-        var purchaseInterval = 500; //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 25
-        var ascendInterval = 30000; //How often to check if you should ascend in miliseconds. Default is 30 seconds.
-        var skillInterval = 1000; //How often to poll for skills
-        var bossTimeoutInterval = 10000; //How often to check for retry boss timeout
-        
-        //Defaults (what to run on start)
-        var autoBuy = true; //autobuy heroes by default
-        var autoAscend = true; //auto-ascend by default
-        var levelCidEnabled = true; //Auto-level Cid by default
-        var disableLogo = true; //Remove Clicker Heroes logo from top of page. Used for lower resolution screens
-        var darkRitualEnabled = true; //If dark ritual is enabled on start
-        
-        //Timeouts
-        var ascendTimeout = 60;//If a zone takes longer than this timeout (seconds), it will ascend
-        var bossTimeout = 60000 * 5; //After failing to kill a boss, how long to wait to retry (default is 20 minutes) 60000 * 20
-        
-        //Other variables
-        var skillsToSpam = [1, 2, 3, 4, 5, 7]; //List of skills to use. 1 = clickstorm recommended for autoclickers = [1, 2, 3, 4, 5, 7];
-        var minAscendZone = 150; //Will not ascend before you have reached this zone
-        var enableDebug = true; //Enables debug messaging. Messages can be viewed in browser console.
-        
+        var otherSkillsButton = document.createElement('input');
         
         var App = {
             name: "Clicker Monkeys",
             onPlaying: function() {
-                //setInterval(purchaseHighest, purchaseInterval);
                 setInterval(getMostEfficientHero, purchaseInterval);
                 setInterval(tryAscend, ascendInterval);
-                setInterval(spamSkills,skillInterval);
+                setInterval(useSkills,skillInterval);
                 setInterval(autoProgress,bossTimeoutInterval);
                 
                 try {
@@ -95,13 +96,15 @@
                 console.log(message);
         }
         
-        function spamSkills(){
+        function useSkills() {
             if (darkRitualEnabled)
                 darkRitual();
-            for (var i = 0; i < skillsToSpam.length; i++) {
-                //debug('Trying to spam skill ' + skillsToSpam[i]);
-                if (skillsReady([skillsToSpam[i]]))
-                    JSMod.useSkill(skillsToSpam[i]);
+            if (useOtherSkills) {
+                for (var i = 0; i < otherSkills.length; i++) {
+                    //debug('Trying to spam skill ' + skillsToSpam[i]);
+                    if (skillsReady([otherSkills[i]]))
+                        JSMod.useSkill(otherSkills[i]);
+                }
             }
         }
         
@@ -214,6 +217,12 @@
             autoAscendButton.onclick = setAutoAscend;
             $('#header').append(autoAscendButton);
             setButtonCSS(autoAscendButton);
+            
+            otherSkillsButton.type = 'button';
+            otherSkillsButton.value = ('Use Skills ' + useOtherSkills);
+            otherSkillsButton.onclick = setOtherSkills;
+            $('#header').append(otherSkillsButton);
+            setButtonCSS(otherSkillsButton);
         }
         
         function setButtonCSS(button) {
@@ -229,6 +238,11 @@
             button.style.fontFamily = 'Helvetica, Arial, Sans-Serif';
             button.style.textDecoration = 'none';
             button.style.verticalAlign = 'middle';
+        }
+        
+        function setOtherSkills() {
+            useOtherSkills = !useOtherSkills;
+            otherSkillsButton.value = ('Use Skills ' + useOtherSkills);
         }
         
         function setAutoAscend() {
@@ -288,6 +302,7 @@
                 //debug("Trying to ascend. Timeout is " + timeout);
                 if (currentZone >= minAscendZone && (timeout > ascendTimeout)) {
                     JSMod.ascend();
+                    nextHero = undefined;
                     try {
                         JSMod.setProgressMode(true);
                     } catch (e) { /* Ignore exception. */ }
@@ -343,14 +358,18 @@
             JSMod.setShiftEnabled(false);
             JSMod.setCtrlEnabled(false);
             JSMod.setZKeyEnabled(false);
-            var heroLevel = getUserData().heroCollection.heroes[hero.id].level;
-            var heroDif = getMaxLevel(hero.id-1) - heroLevel;
-            if (heroDif >= 100)
+            var heroDif = maxLevels[hero.id-1] - hero.level;
+            debug('heroDif ' + heroDif);
+            if (heroDif >= 100) {
+                debug('Control');
                 JSMod.setCtrlEnabled(true);
-            else if (heroDif >= 25)
+            } else if (heroDif >= 25) {
+                debug('Z');
                 JSMod.setZKeyEnabled(true);
-            else if (heroDif >= 10)
+            } else if (heroDif >= 10){
+                debug('Shift');
                 JSMod.setZKeyEnabled(true);
+            }
             JSMod.levelHero(hero.id);
             JSMod.setShiftEnabled(false);
             JSMod.setCtrlEnabled(false);
@@ -377,21 +396,27 @@
         function calculateHeroDps(save, hero, level) {
             if (level === 0)
                 return 0;
-            return baseDamage[hero.id-1] * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.02 * getAncientLevel(28)) * hero.epicLevel) * level * Math.pow(4, Math.min(Math.max(Math.floor((level - 175) / 25), 0) - Math.min(Math.floor(level / 1000), 3), 154)) * Math.pow(10, Math.min(Math.floor(level / 1000), 3)) * (1 + 0.1 * save.heroSouls) + (baseDamage[hero.id-1] * level * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.2 * getAncientLevel(28)) * hero.epicLevel) *(1 + 0.11 * getAncientLevel(16)));
+            return baseDamage[hero.id-1] * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.02 * getAncientLevel(28)) * hero.epicLevel) * level * (1 + 0.1 * save.heroSouls) + (baseDamage[hero.id-1] * level * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.2 * getAncientLevel(28)) * hero.epicLevel) *(1 + 0.11 * getAncientLevel(16)));
         }
         
         function calculateEasyHeroDps(save, hero, level) {
             if (level === 0)
                 return 0;
-            return baseDamage[hero.id-1] * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.02 * getAncientLevel(28)) * hero.epicLevel) * level * Math.pow(4, Math.min(Math.max(Math.floor((level - 175) / 25), 0) - Math.min(Math.floor(level / 1000), 3), 154)) * Math.pow(10, Math.min(Math.floor(level / 1000), 3)) * (1 + 0.1 * save.heroSouls);
+            return baseDamage[hero.id-1] * hero.damageMultiplier * save.allDpsMultiplier * (1 + (0.5 + 0.02 * getAncientLevel(28)) * hero.epicLevel) * level * (1 + 0.1 * save.heroSouls);
         }
         
         function getHeroEfficiency(save, hero) {
-            //debug('Hero ' + hero);
-            if (hero.id === 0)
+            // debug('Hero ' + (hero.id - 1) + ' change in dps ' + (calculateEasyHeroDps(save, hero, hero.level + 1) - calculateEasyHeroDps(save, hero, hero.level)) + ' cost ' + calculateHeroCost((hero.id - 1), (hero.level + 1)) + ' efficiency ' + (calculateEasyHeroDps(save, hero, hero.level + 1) - calculateEasyHeroDps(save, hero, hero.level)) / calculateHeroCost((hero.id - 1), (hero.level + 1)));
+            // debug('Hero ' + (hero.id - 1) + ' DPS ' + calculateHeroDps(save, hero, hero.level));
+            if (hero.id === 1)
                 return 0;
             else
-                return (calculateEasyHeroDps(save, hero, hero.level + 1) - calculateEasyHeroDps(save, hero, hero.level)) / calculateHeroCost(hero.id - 1, hero.level + 1);
+                return (calculateEasyHeroDps(save, hero, hero.level + 1) - calculateEasyHeroDps(save, hero, hero.level)) / calculateHeroCost((hero.id - 1), (hero.level + 1));
+        }
+        
+        function hasGoldToPurchaseHero(save, heroID) {
+            //debug('hero ' + heroID + ' gold ' + save.gold + ' cost ' + calculateHeroCost(heroID, save.heroCollection.heroes[heroID+1].level + 1));
+            return save.gold > calculateHeroCost(heroID, save.heroCollection.heroes[heroID+1].level);
         }
         
         function getMostEfficientHero() {
@@ -404,31 +429,53 @@
                 
                 for (var i = 0; i < 26; i++) {
                     //debug(save.heroCollection.heroes[i+1]);
-                    if (save.heroCollection.heroes[i+1].level < maxLevels[i] && !save.heroCollection.heroes[i+1].locked)
+                    if (save.heroCollection.heroes[i+1].level < maxLevels[i])
                         heroesBelow.push(i);
                 }
-                debug('heroesBelow.length ' + heroesBelow.length);
+                //debug('heroesBelow.length ' + heroesBelow.length);
                 if (heroesBelow.length > 0) {
-                    for (var i = 0; i < heroesBelow.length; i++) {
-                        debug('heroesBelow[i] ' + heroesBelow[i]);
-                        tempHero = [heroesBelow[i], getHeroEfficiency(save, save.heroCollection.heroes[heroesBelow[i]])];
-                        //debug('Hero ' + i + ' Efficiency: ' + getHeroEfficiency(save, save.heroCollection.heroes[i+1]));
-                        if (tempHero[1] > bestHero[1])
-                            bestHero = tempHero;
-                    }
-                    JSMod.levelHero(bestHero[0] + 1);
-                } else {
-                    for (var i = 0; i < 26; i++) {
-                        if (!save.heroCollection.heroes[i+1].locked) {
-                            tempHero = [i, getHeroEfficiency(save, save.heroCollection.heroes[i+1])];
+                    if (nextHero === undefined) {
+                        for (var i = 0; i < heroesBelow.length; i++) {
+                            //debug('heroesBelow[i] ' + heroesBelow[i]);
+                            tempHero = [heroesBelow[i], getHeroEfficiency(save, save.heroCollection.heroes[heroesBelow[i]+1])];
                             //debug('Hero ' + i + ' Efficiency: ' + getHeroEfficiency(save, save.heroCollection.heroes[i+1]));
-                            if (tempHero[1] > bestHero[1])
+                            if (tempHero[1] > bestHero[1] && !save.heroCollection.heroes[i+1].locked)
                                 bestHero = tempHero;
                         }
+                        if (hasGoldToPurchaseHero(save, bestHero[0]))
+                            maxPossibleLevelHero(save.heroCollection.heroes[bestHero[0]+1]);
+                        else
+                            nextHero = bestHero[0] + 1;
+                    } else {
+                        if (save.heroCollection.heroes[nextHero].locked){
+                            nextHero = undefined;
+                        } else if (hasGoldToPurchaseHero(save, nextHero-1)) {
+                            JSMod.levelHero(nextHero);
+                            nextHero = undefined;
+                        }
                     }
-                    maxLevelHero(save.heroCollection.heroes[bestHero[0]+1]);
+                } else {
+                    if (nextHero === undefined) {
+                        for (var i = 0; i < 26; i++) {
+                            if (!save.heroCollection.heroes[i+1].locked) {
+                                tempHero = [i, getHeroEfficiency(save, save.heroCollection.heroes[i+1])];
+                                //debug('Hero ' + i + ' Efficiency: ' + getHeroEfficiency(save, save.heroCollection.heroes[i+1]));
+                                if (tempHero[1] > bestHero[1])
+                                    bestHero = tempHero;
+                            }
+                        }
+                        if (hasGoldToPurchaseHero(save, bestHero[0]))
+                            maxLevelHero(save.heroCollection.heroes[bestHero[0]+1]);
+                        else
+                            nextHero = bestHero[0] + 1;
+                    } else {
+                        if (hasGoldToPurchaseHero(save, nextHero-1)) {
+                            maxLevelHero(save.heroCollection.heroes[nextHero]);
+                            nextHero = undefined;
+                        }
+                    }
                 }
-                debug ('Best hero is ' + bestHero[0]);
+                // debug ('Best ' + bestHero[0] + ' next ' + (nextHero-1));
             }
         }
         
