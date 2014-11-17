@@ -17,7 +17,7 @@
         "use strict";
         
         //Intervals
-        var purchaseInterval = 100; //Basically how fast it levels up heroes. Set interval higher for slower repeats. Recommended minimum value 25
+        var purchaseInterval = 250; //Basically how fast it levels up heroes. Set interval higher for slower repeats.
         var ascendInterval = 30000; //How often to check if you should ascend in miliseconds. Default is 30 seconds.
         var skillInterval = 1000; //How often to poll for skills
         var bossTimeoutInterval = 10000; //How often to check for retry boss timeout
@@ -33,11 +33,13 @@
         //Timeouts
         var ascendTimeout = 60;//If a zone takes longer than this timeout (seconds), it will ascend
         var bossTimeout = 60000 * 5; //After failing to kill a boss, how long to wait to retry (default is 20 minutes) 60000 * 20
+        var purchaseTimeout = 20000; //If a hero is not purchased in this time frame, the highest possible hero will be purchased.
         
         //Other variables
         var otherSkills = [1, 2, 3, 4, 5, 7]; //List of skills to use. 1 = clickstorm recommended for autoclickers = [1, 2, 3, 4, 5, 7];
         var minAscendZone = 150; //Will not ascend before you have reached this zone
         var enableDebug = true; //Enables debug messaging. Messages can be viewed in browser console.
+        var maxLevelAscend = 180; //If zone is passed, will ascend
         
         //WARNING: Do Not Change
         var JSMod = null;
@@ -55,6 +57,7 @@
         var previousZone = 0;
         var dogcog = 1;
         var nextHero;
+        var lastHeroPurchasedTimer = Date.now();
         
         //GUI: Do Not Change
         var autoBuyButton = document.createElement('input');
@@ -83,6 +86,8 @@
                 currentZone = zone;
                 //debug("New zone: " + zone + " at time " + zoneTimer);
                 autoProgress();
+                if (zone > maxLevelAscend)
+                    tryAscend();
             },
             onReady: function() {
                 debug("Ready to roll fox!");
@@ -136,6 +141,7 @@
         function skillsReady(skillIDs) {
             var cooldowns = getUserData().skillCooldowns;
             for (var i = 0; i < skillIDs.length; i++) {
+                //debug('Skill ' + skillIDs[i] + ' CurrentCooldown ' + (Date.now() - cooldowns[skillIDs[i]]) + ' cooldownNeeded ' + getSkillCooldown(skillIDs[i]) + ' actual cooldown ' + cooldowns[skillIDs[i]]);
                 if (cooldowns[skillIDs[i]] === undefined || (Date.now() - cooldowns[skillIDs[i]] < getSkillCooldown(skillIDs[i]) && cooldowns[skillIDs[i]] !== 0))
                     return false;
             }
@@ -229,7 +235,6 @@
             button.style.border = '1px solid #000000';
             button.style.alignItems = 'center';
             button.style.horizontalAlign = 'middle';
-            //button.style.background = '#00446e -webkit-gradient(linear, left top, left bottom, from(#000000), to(#00446e)) -webkit-linear-gradient(top, #000000, #00446e) -moz-linear-gradient(top, #000000, #00446e) -ms-linear-gradient(top, #000000, #00446e) -o-linear-gradient(top, #000000, #00446e)';
             button.style.padding = '6.5px 13px';
             button.style.webkitBorderRadius = '40px';
             button.style.mozBorderRadius = '40px';
@@ -278,7 +283,7 @@
                     save = JSON.parse(JSMod.getUserData());
                     gotData = false;
                 } catch (e) {
-                    debug('Failed to get userData');
+                    debug('Failed to get userData' + e.message);
                     gotData = true;
                 }
             }
@@ -300,7 +305,8 @@
             if (autoAscend) {
                 var timeout = (Date.now() - zoneTimer) / 1000;
                 //debug("Trying to ascend. Timeout is " + timeout);
-                if (currentZone >= minAscendZone && (timeout > ascendTimeout)) {
+                if (currentZone >= minAscendZone && (timeout > ascendTimeout || currentZone > maxLevelAscend)) {
+                    buyAllHeroes();
                     JSMod.ascend();
                     nextHero = undefined;
                     try {
@@ -339,6 +345,26 @@
             return true;
         }
         
+        function buyAllHeroes() {
+            var save;
+            var heroCosts;
+            var canBuyHero = true;
+            while (canBuyHero) {
+                save = getUserData();
+                heroCosts = [];
+                for (var i = 0; i < 26; i++)
+                    heroCosts[i] = ((save.heroCollection.heroes[i + 1].level < getMaxLevel(save.heroCollection.heroes[i + 1])) ? calculateHeroCost(i, save.heroCollection.heroes[i + 1].level) : Number.MAX_VALUE);
+    
+                if (save.gold > Math.min.apply(Math, heroCosts)) {
+                    JSMod.setZKeyEnabled(true);
+                    JSMod.levelHero(heroCosts.indexOf(Math.min.apply(Math, heroCosts)) + 1);
+                    JSMod.setZKeyEnabled(false);
+                } else
+                    canBuyHero = false;
+            }
+            
+        }
+        
         function purchaseCheapest() {
             updateDogcog();
             var save = getUserData();
@@ -355,6 +381,7 @@
         }
         
         function maxPossibleLevelHero(hero) {
+            lastHeroPurchasedTimer = Date.now();
             JSMod.setShiftEnabled(false);
             JSMod.setCtrlEnabled(false);
             JSMod.setZKeyEnabled(false);
@@ -377,6 +404,7 @@
         }
         
         function maxLevelHero(hero) {
+            lastHeroPurchasedTimer = Date.now();
             JSMod.setCtrlEnabled(true);
             JSMod.levelHero(hero.id);
             JSMod.setCtrlEnabled(false);
@@ -476,6 +504,10 @@
                     }
                 }
                 // debug ('Best ' + bestHero[0] + ' next ' + (nextHero-1));
+                if ((Date.now() - lastHeroPurchasedTimer) > purchaseTimeout) {
+                    buyAllHeroes();
+                    lastHeroPurchasedTimer = Date.now();
+                }
             }
         }
         
